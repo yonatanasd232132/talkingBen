@@ -1,5 +1,3 @@
-#include <windows.h>
-#include <stdio.h>
 #include <Uefi.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -10,16 +8,15 @@
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
 
-//hook function for 
-// Windows Boot Manager path
 #define WINDOWS_BOOTMGR_PATH L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi"
 
-// Boot order variable name
-#define EFI_BOOT_ORDER_VARIABLE_NAME L"BootOrder"
-
-EFI_DEVICE_PATH_PROTOCOL* giveMeTHeBOOTER(VOID) {//finds the booter location in memory and return a physical HANDLE to it
+EFI_DEVICE_PATH_PROTOCOL*
+giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
+{
+    // Finds the Windows Boot Manager on any available filesystem and returns
+    // a device path describing its location.
     EFI_STATUS Status;
-    EFI_HANDLE* Handles = NULL;//all handles to simple file system files
+    EFI_HANDLE* Handles = NULL; // All handles that support SimpleFileSystem
     UINTN HandleCount = 0;
     EFI_DEVICE_PATH_PROTOCOL* DevicePath = NULL;
 
@@ -46,7 +43,7 @@ EFI_DEVICE_PATH_PROTOCOL* giveMeTHeBOOTER(VOID) {//finds the booter location in 
             Handles[i],
             &gEfiSimpleFileSystemProtocolGuid,
             (VOID**)&FileSystem,
-            gImageHandle,
+            ImageHandle,
             NULL,
             EFI_OPEN_PROTOCOL_GET_PROTOCOL
         );
@@ -84,18 +81,15 @@ EFI_DEVICE_PATH_PROTOCOL* giveMeTHeBOOTER(VOID) {//finds the booter location in 
         gBS->CloseProtocol(
             Handles[i],
             &gEfiSimpleFileSystemProtocolGuid,
-            gImageHandle,
+            ImageHandle,
             NULL
         );
     }
 
     // Free the handle buffer
     if (Handles) {
-        gBS->FreePool(Handles);
+        FreePool(Handles);
     }
 
     return DevicePath;
-
-
-
 }

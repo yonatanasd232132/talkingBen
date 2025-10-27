@@ -5,12 +5,19 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Protocol/Cpu.h>
-#include <Protocol/DxeServices.h>        
+#include <Protocol/DxeServices.h>
 #include <Library/PrintLib.h>
-#include <findsBOOTER.cpp>
+
+EFI_DEVICE_PATH_PROTOCOL* giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle);
 
 #define PATCH_JUMP_SIZE 14 // size for jmp instruction in x64 (ff 25 + rip + 8-byte address)
 #define PAGE_SIZE 0x1000
+#ifndef EFI_MEMORY_XP
+#define EFI_MEMORY_XP 0x1000000000000000ULL
+#endif
+#ifndef EFI_MEMORY_RO
+#define EFI_MEMORY_RO 0x2000000000000000ULL
+#endif
 
 // Signature for ImgArchStartBootApplication in bootmgfw.efi
 // This is the pattern BlackLotus searches for
@@ -19,11 +26,35 @@ UINT8 SigImgArchStartBootApplication[] = {
     // Additional bytes would follow...
 };
 
-// Pointer to original ImgArchStartBootApplication
-VOID* OriginalImgArchStartBootApp = NULL;
+EFI_STATUS
+EFIAPI
+MyHookFunction(
+    IN VOID* ApplicationEntryPoint,
+    IN EFI_HANDLE ImageHandle,
+    IN UINT32 Flags,
+    IN EFI_HANDLE ParentImageHandle,
+    IN VOID* FilePath
+)
+{
+    DEBUG((DEBUG_INFO, "MyHookFunction invoked\n"));
+
+    (void)ApplicationEntryPoint;
+    (void)ImageHandle;
+    (void)Flags;
+    (void)ParentImageHandle;
+    (void)FilePath;
+
+    return EFI_SUCCESS;
+}
 
 // Pattern matching function to find code signatures in memory
-VOID* FindPattern(IN VOID* Base,IN UINTN Size,IN UINT8* Pattern,IN UINTN PatternSize)
+VOID*
+FindPattern(
+    IN VOID* Base,
+    IN UINTN Size,
+    IN UINT8* Pattern,
+    IN UINTN PatternSize
+)
 {
     if (Base == NULL || Pattern == NULL || PatternSize == 0 || Size == 0) {
         return NULL;
@@ -79,8 +110,8 @@ PatchFunctionWithJump(
     UINT64                      PageLength;
     UINT64                      BytesToCover;
     UINT8                       JumpBytes[PATCH_JUMP_SIZE];
-    EFI_CPU_ARCH_PROTOCOL* Cpu = NULL;
-    EFI_DXE_SERVICES_PROTOCOL* DxeServices = NULL;
+    EFI_CPU_ARCH_PROTOCOL*      Cpu = NULL;
+    EFI_DXE_SERVICES_PROTOCOL*  DxeServices = NULL;
     BOOLEAN                     UsedDxeService = FALSE;
 
     if (OriginalBytes == NULL || TargetAddress == NULL || HookFunction == NULL) {
@@ -89,7 +120,7 @@ PatchFunctionWithJump(
 
     // Allocate buffer to store original bytes
     *OriginalBytes = AllocatePool(PATCH_JUMP_SIZE);
-    if (!*OriginalBytes) {
+    if (*OriginalBytes == NULL) {
         return EFI_OUT_OF_RESOURCES;
     }
 
@@ -152,51 +183,74 @@ PatchFunctionWithJump(
 
     // Restore memory attributes
     if (UsedDxeService) {
-        // Choose attributes to restore — platform dependent.
-        // Commonly you'd restore to EFI_MEMORY_XP | EFI_MEMORY_RO or whatever the original platform had.
-        // NOTE: If you know the precise attributes to restore, put them here.
         UINT64 RestoreAttributes = (UINT64)(EFI_MEMORY_XP | EFI_MEMORY_RO);
         Status = DxeServices->SetMemorySpaceAttributes(PageBase, PageLength, RestoreAttributes);
         if (EFI_ERROR(Status)) {
             DEBUG((DEBUG_WARN, "Failed to restore attributes via DxeServices: %r\n", Status));
-            // not fatal
         }
-    }
-    else {
+    } else if (Cpu != NULL) {
         UINT64 RestoreAttributes = (UINT64)(EFI_MEMORY_XP | EFI_MEMORY_RO);
         Status = Cpu->SetMemoryAttributes(Cpu, PageBase, PageLength, RestoreAttributes);
         if (EFI_ERROR(Status)) {
             DEBUG((DEBUG_WARN, "Failed to restore attributes via Cpu protocol: %r\n", Status));
-            // not fatal
         }
     }
 
     return EFI_SUCCESS;
 }
 
-
-EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE* SystemTable)
-{   
-    EFI_DEVICE_PATH_PROTOCOL* device_handle;
+EFI_STATUS
+EFIAPI
+UefiMain(
+    IN EFI_HANDLE ImageHandle,
+    IN EFI_SYSTEM_TABLE* SystemTable
+)
+{
     EFI_STATUS Status = EFI_SUCCESS;
+    EFI_DEVICE_PATH_PROTOCOL* DevicePath = NULL;
+    VOID* BootMgrImageBase = NULL;
+    UINTN BootMgrImageSize = 0;
+    VOID* Found = NULL;
 
-    VOID* found = FindPattern(base, size, SigImgArchStartBootApplication, sizeof(SigImgArchStartBootApplication));
-    device_handle = giveMeTHeBOOTER();
+    DevicePath = giveMeTHeBOOTER(ImageHandle);
+    if (DevicePath == NULL) {
+        DEBUG((DEBUG_WARN, "Windows Boot Manager not found.\n"));
+        return EFI_NOT_FOUND;
+    }
 
-    if (found) {
-        UINT8* saved = NULL;
-        Status = PatchFunctionWithJump(found, MyHookFunction, &saved);
-        if (EFI_ERROR(Status)) { 
-            DEBUG((DEBUG_ERROR, "Patch failed: %r\n", Status)); 
+    DEBUG((DEBUG_INFO, "Windows Boot Manager device path located.\n"));
+
+    // In a real-world implementation BootMgrImageBase/Size would describe the
+    // boot manager image mapped in memory.  The values are not available in
+    // this simplified example, so the pattern search is expected to fail.
+    Found = FindPattern(
+        BootMgrImageBase,
+        BootMgrImageSize,
+        SigImgArchStartBootApplication,
+        sizeof(SigImgArchStartBootApplication)
+    );
+
+    if (Found != NULL) {
+        UINT8* SavedBytes = NULL;
+        Status = PatchFunctionWithJump(Found, (VOID*)MyHookFunction, &SavedBytes);
+        if (EFI_ERROR(Status)) {
+            DEBUG((DEBUG_ERROR, "Patch failed: %r\n", Status));
+        } else {
+            DEBUG((DEBUG_INFO, "Patch applied\n"));
         }
-        else { 
-            DEBUG((DEBUG_INFO, "Patch applied\n")); 
+
+        if (SavedBytes != NULL) {
+            FreePool(SavedBytes);
         }
+    } else {
+        DEBUG((DEBUG_WARN, "Pattern not found.\n"));
+    }
 
-        FreePool(saved);
-    
-
+    if (DevicePath != NULL) {
+        FreePool(DevicePath);
+    }
 
     DEBUG((DEBUG_INFO, "Patch demo finished\n"));
     return Status;
 }
+
