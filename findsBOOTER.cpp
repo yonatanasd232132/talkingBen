@@ -9,12 +9,10 @@
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
 
-#define C16(Str) ((CONST CHAR16*)(Str))
+static CHAR16 WINDOWS_BOOTMGR_PATH[] = L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi";
 
-static CONST CHAR16* const WINDOWS_BOOTMGR_PATH = C16(L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
-
-static CONST CHAR16* const FAILED_FS_HANDLES_FMT = C16(L"Failed to get filesystem handles: %r\n");
-static CONST CHAR16* const FOUND_BOOTMGR_FMT = C16(L"[+] Found Windows Boot Manager at: %s\n");
+static const CHAR16 FAILED_FS_HANDLES_FMT[] = L"Failed to get filesystem handles: %r\n";
+static const CHAR16 FOUND_BOOTMGR_FMT[] = L"[+] Found Windows Boot Manager at: %s\n";
 
 EFI_DEVICE_PATH_PROTOCOL*
 giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)

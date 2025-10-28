@@ -8,8 +8,6 @@
 #include <Protocol/DxeServices.h>
 #include <Library/PrintLib.h>
 
-#define C16(Str) ((CONST CHAR16*)(Str))
-
 #define PATCH_JUMP_SIZE 14 // size for jmp instruction in x64 (ff 25 + rip + 8-byte address)
 #define PAGE_SIZE 0x1000
 #ifndef EFI_MEMORY_XP
@@ -47,8 +45,9 @@ TargetFunction(
     IN EFI_SYSTEM_TABLE* SystemTable
 )
 {
-    static CONST CHAR16* const ORIGINAL_TARGET_MSG = C16(L"Original TargetFunction should not execute after hooking.\n");
+    static const CHAR16 ORIGINAL_TARGET_MSG[] = L"Original TargetFunction should not execute after hooking.\n";
     Print(ORIGINAL_TARGET_MSG);
+    Print(L"Original TargetFunction should not execute after hooking.\n");
 
     (void)ImageHandle;
     (void)SystemTable;
@@ -184,8 +183,9 @@ UefiMain(
     EFI_STATUS Status = EFI_SUCCESS;
     UINT8* SavedBytes = NULL;
 
-    static CONST CHAR16* const HOOK_ATTEMPT_MSG = C16(L"Attempting to hook TargetFunction...\n");
+    static const CHAR16 HOOK_ATTEMPT_MSG[] = L"Attempting to hook TargetFunction...\n";
     Print(HOOK_ATTEMPT_MSG);
+    Print(L"Attempting to hook TargetFunction...\n");
 
     Status = PatchFunctionWithJump((VOID*)TargetFunction, (VOID*)MyHookFunction, &SavedBytes);
     if (EFI_ERROR(Status)) {
