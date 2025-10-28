@@ -8,7 +8,18 @@
 #include <Protocol/DxeServices.h>
 #include <Library/PrintLib.h>
 
-EFI_DEVICE_PATH_PROTOCOL* giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle);
+static const CHAR16 ORIGINAL_TARGET_MSG[] = {
+    'O', 'r', 'i', 'g', 'i', 'n', 'a', 'l', ' ', 'T', 'a', 'r', 'g', 'e', 't',
+    'F', 'u', 'n', 'c', 't', 'i', 'o', 'n', ' ', 's', 'h', 'o', 'u', 'l', 'd',
+    ' ', 'n', 'o', 't', ' ', 'e', 'x', 'e', 'c', 'u', 't', 'e', ' ', 'a', 'f',
+    't', 'e', 'r', ' ', 'h', 'o', 'o', 'k', 'i', 'n', 'g', '.', '\n', '\0'
+};
+
+static const CHAR16 HOOK_ATTEMPT_MSG[] = {
+    'A', 't', 't', 'e', 'm', 'p', 't', 'i', 'n', 'g', ' ', 't', 'o', ' ', 'h',
+    'o', 'o', 'k', ' ', 'T', 'a', 'r', 'g', 'e', 't', 'F', 'u', 'n', 'c', 't',
+    'i', 'o', 'n', '.', '.', '.', '\n', '\0'
+};
 
 #define PATCH_JUMP_SIZE 14 // size for jmp instruction in x64 (ff 25 + rip + 8-byte address)
 #define PAGE_SIZE 0x1000
@@ -18,13 +29,6 @@ EFI_DEVICE_PATH_PROTOCOL* giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle);
 #ifndef EFI_MEMORY_RO
 #define EFI_MEMORY_RO 0x2000000000000000ULL
 #endif
-
-// Signature for ImgArchStartBootApplication in bootmgfw.efi
-// This is the pattern BlackLotus searches for
-UINT8 SigImgArchStartBootApplication[] = {
-    0x41, 0xB8, 0x09, 0x00, 0x00, 0x00  // mov r8d, 9
-    // Additional bytes would follow...
-};
 
 EFI_STATUS
 EFIAPI
@@ -36,7 +40,7 @@ MyHookFunction(
     IN VOID* FilePath
 )
 {
-    DEBUG((DEBUG_INFO, "MyHookFunction invoked\n"));
+    DEBUG((DEBUG_INFO, "MyHookFunction invoked. Hook success!\n"));
 
     (void)ApplicationEntryPoint;
     (void)ImageHandle;
@@ -47,42 +51,19 @@ MyHookFunction(
     return EFI_SUCCESS;
 }
 
-// Pattern matching function to find code signatures in memory
-VOID*
-FindPattern(
-    IN VOID* Base,
-    IN UINTN Size,
-    IN UINT8* Pattern,
-    IN UINTN PatternSize
+EFI_STATUS
+EFIAPI
+TargetFunction(
+    IN EFI_HANDLE ImageHandle,
+    IN EFI_SYSTEM_TABLE* SystemTable
 )
 {
-    if (Base == NULL || Pattern == NULL || PatternSize == 0 || Size == 0) {
-        return NULL;
-    }
+    Print(ORIGINAL_TARGET_MSG);
 
-    if (PatternSize > Size) {
-        return NULL;
-    }
+    (void)ImageHandle;
+    (void)SystemTable;
 
-    UINT8* Memory = (UINT8*)Base;
-
-    // Stop at Size - PatternSize inclusive
-    for (UINTN i = 0; i <= Size - PatternSize; i++) {
-        BOOLEAN Match = TRUE;
-
-        for (UINTN j = 0; j < PatternSize; j++) {
-            if (Memory[i + j] != Pattern[j]) {
-                Match = FALSE;
-                break;
-            }
-        }
-
-        if (Match) {
-            return &Memory[i];
-        }
-    }
-
-    return NULL;
+    return EFI_SUCCESS;
 }
 
 /**
@@ -199,6 +180,10 @@ PatchFunctionWithJump(
     return EFI_SUCCESS;
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 EFI_STATUS
 EFIAPI
 UefiMain(
@@ -207,50 +192,37 @@ UefiMain(
 )
 {
     EFI_STATUS Status = EFI_SUCCESS;
-    EFI_DEVICE_PATH_PROTOCOL* DevicePath = NULL;
-    VOID* BootMgrImageBase = NULL;
-    UINTN BootMgrImageSize = 0;
-    VOID* Found = NULL;
+    UINT8* SavedBytes = NULL;
 
-    DevicePath = giveMeTHeBOOTER(ImageHandle);
-    if (DevicePath == NULL) {
-        DEBUG((DEBUG_WARN, "Windows Boot Manager not found.\n"));
-        return EFI_NOT_FOUND;
-    }
+    Print(HOOK_ATTEMPT_MSG);
 
-    DEBUG((DEBUG_INFO, "Windows Boot Manager device path located.\n"));
-
-    // In a real-world implementation BootMgrImageBase/Size would describe the
-    // boot manager image mapped in memory.  The values are not available in
-    // this simplified example, so the pattern search is expected to fail.
-    Found = FindPattern(
-        BootMgrImageBase,
-        BootMgrImageSize,
-        SigImgArchStartBootApplication,
-        sizeof(SigImgArchStartBootApplication)
-    );
-
-    if (Found != NULL) {
-        UINT8* SavedBytes = NULL;
-        Status = PatchFunctionWithJump(Found, (VOID*)MyHookFunction, &SavedBytes);
-        if (EFI_ERROR(Status)) {
-            DEBUG((DEBUG_ERROR, "Patch failed: %r\n", Status));
-        } else {
-            DEBUG((DEBUG_INFO, "Patch applied\n"));
-        }
-
+    Status = PatchFunctionWithJump((VOID*)TargetFunction, (VOID*)MyHookFunction, &SavedBytes);
+    if (EFI_ERROR(Status)) {
+        DEBUG((DEBUG_ERROR, "Patch failed: %r\n", Status));
         if (SavedBytes != NULL) {
             FreePool(SavedBytes);
         }
-    } else {
-        DEBUG((DEBUG_WARN, "Pattern not found.\n"));
+        return Status;
     }
 
-    if (DevicePath != NULL) {
-        FreePool(DevicePath);
+    DEBUG((DEBUG_INFO, "Patch applied. Invoking TargetFunction to validate hook.\n"));
+
+    EFI_STATUS HookResult = TargetFunction(ImageHandle, SystemTable);
+    if (EFI_ERROR(HookResult)) {
+        DEBUG((DEBUG_ERROR, "TargetFunction returned error: %r\n", HookResult));
+    } else {
+        DEBUG((DEBUG_INFO, "Hook executed successfully.\n"));
+    }
+
+    if (SavedBytes != NULL) {
+        FreePool(SavedBytes);
     }
 
     DEBUG((DEBUG_INFO, "Patch demo finished\n"));
-    return Status;
+    return HookResult;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
