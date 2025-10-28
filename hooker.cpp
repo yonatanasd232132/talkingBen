@@ -169,6 +169,10 @@ PatchFunctionWithJump(
     return EFI_SUCCESS;
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 EFI_STATUS
 EFIAPI
 UefiMain(
@@ -208,4 +212,8 @@ UefiMain(
     DEBUG((DEBUG_INFO, "Patch demo finished\n"));
     return HookResult;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

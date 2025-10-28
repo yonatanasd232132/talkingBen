@@ -4,6 +4,7 @@
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/DevicePathLib.h>
+#include <Library/BaseLib.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
@@ -62,10 +63,17 @@ giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
         if (!EFI_ERROR(Status)) {
             // Try to open the Windows Boot Manager file
             EFI_FILE_PROTOCOL* File;
+            CHAR16 BootPathBuffer[260];
+            StrCpyS(
+                BootPathBuffer,
+                sizeof(BootPathBuffer) / sizeof(BootPathBuffer[0]),
+                WINDOWS_BOOTMGR_PATH
+            );
+
             Status = Volume->Open(
                 Volume,
                 &File,
-                WINDOWS_BOOTMGR_PATH,
+                BootPathBuffer,
                 EFI_FILE_MODE_READ,
                 EFI_FILE_READ_ONLY
             );
