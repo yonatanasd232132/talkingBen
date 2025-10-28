@@ -9,10 +9,23 @@
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
 
-static CHAR16 WINDOWS_BOOTMGR_PATH[] = L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi";
+static CHAR16 WINDOWS_BOOTMGR_PATH[] = {
+    '\\', 'E', 'F', 'I', '\\', 'M', 'i', 'c', 'r', 'o', 's', 'o', 'f', 't',
+    '\\', 'B', 'o', 'o', 't', '\\', 'b', 'o', 'o', 't', 'm', 'g', 'f', 'w',
+    '.', 'e', 'f', 'i', '\0'
+};
 
-static const CHAR16 FAILED_FS_HANDLES_FMT[] = L"Failed to get filesystem handles: %r\n";
-static const CHAR16 FOUND_BOOTMGR_FMT[] = L"[+] Found Windows Boot Manager at: %s\n";
+static const CHAR16 FAILED_FS_HANDLES_FMT[] = {
+    'F', 'a', 'i', 'l', 'e', 'd', ' ', 't', 'o', ' ', 'g', 'e', 't', ' ', 'f',
+    'i', 'l', 'e', 's', 'y', 's', 't', 'e', 'm', ' ', 'h', 'a', 'n', 'd', 'l',
+    'e', 's', ':', ' ', '%', 'r', '\n', '\0'
+};
+
+static const CHAR16 FOUND_BOOTMGR_FMT[] = {
+    '[', '+', ']', ' ', 'F', 'o', 'u', 'n', 'd', ' ', 'W', 'i', 'n', 'd', 'o',
+    'w', 's', ' ', 'B', 'o', 'o', 't', ' ', 'M', 'a', 'n', 'a', 'g', 'e', 'r',
+    ' ', 'a', 't', ':', ' ', '%', 's', '\n', '\0'
+};
 
 EFI_DEVICE_PATH_PROTOCOL*
 giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
