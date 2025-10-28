@@ -5,6 +5,7 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DxeServicesTableLib.h>
+#include <Protocol/DxeServices.h>
 #include <Protocol/Cpu.h>
 #include <Library/PrintLib.h>
 
@@ -100,7 +101,7 @@ PatchFunctionWithJump(
     }
 
     // Allocate buffer to store original bytes
-    *OriginalBytes = AllocatePool(PATCH_JUMP_SIZE);
+    *OriginalBytes = static_cast<UINT8*>(AllocatePool(PATCH_JUMP_SIZE));
     if (*OriginalBytes == NULL) {
         return EFI_OUT_OF_RESOURCES;
     }
