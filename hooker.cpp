@@ -8,6 +8,9 @@
 #include <Protocol/Cpu.h>
 #include <Library/PrintLib.h>
 
+// Forward declaration to avoid requiring Protocol/DxeServices.h when building as C++
+typedef struct _EFI_DXE_SERVICES EFI_DXE_SERVICES;
+
 static const CHAR16 ORIGINAL_TARGET_MSG[] = {
     'O', 'r', 'i', 'g', 'i', 'n', 'a', 'l', ' ', 'T', 'a', 'r', 'g', 'e', 't',
     'F', 'u', 'n', 'c', 't', 'i', 'o', 'n', ' ', 's', 'h', 'o', 'u', 'l', 'd',
@@ -100,7 +103,7 @@ PatchFunctionWithJump(
     }
 
     // Allocate buffer to store original bytes
-    *OriginalBytes = AllocatePool(PATCH_JUMP_SIZE);
+    *OriginalBytes = static_cast<UINT8*>(AllocatePool(PATCH_JUMP_SIZE));
     if (*OriginalBytes == NULL) {
         return EFI_OUT_OF_RESOURCES;
     }
