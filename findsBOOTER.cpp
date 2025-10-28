@@ -8,7 +8,10 @@
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
 
-#define WINDOWS_BOOTMGR_PATH L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi"
+static CHAR16 WINDOWS_BOOTMGR_PATH[] = L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi";
+
+static const CHAR16 FAILED_FS_HANDLES_FMT[] = L"Failed to get filesystem handles: %r\n";
+static const CHAR16 FOUND_BOOTMGR_FMT[] = L"[+] Found Windows Boot Manager at: %s\n";
 
 EFI_DEVICE_PATH_PROTOCOL*
 giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
@@ -30,7 +33,7 @@ giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
     );
 
     if (EFI_ERROR(Status)) {
-        Print(L"Failed to get filesystem handles: %r\n", Status);
+        Print(FAILED_FS_HANDLES_FMT, Status);
         return NULL;
     }
 
@@ -71,7 +74,7 @@ giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
                 // Found it! Close the file and create device path
                 File->Close(File);
                 DevicePath = FileDevicePath(Handles[i], WINDOWS_BOOTMGR_PATH);
-                Print(L"[+] Found Windows Boot Manager at: %s\n", WINDOWS_BOOTMGR_PATH);
+                Print(FOUND_BOOTMGR_FMT, WINDOWS_BOOTMGR_PATH);
             }
 
             Volume->Close(Volume);
