@@ -4,11 +4,28 @@
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/DevicePathLib.h>
+#include <Library/BaseLib.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
 
-#define WINDOWS_BOOTMGR_PATH L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi"
+static CHAR16 WINDOWS_BOOTMGR_PATH[] = {
+    '\\', 'E', 'F', 'I', '\\', 'M', 'i', 'c', 'r', 'o', 's', 'o', 'f', 't',
+    '\\', 'B', 'o', 'o', 't', '\\', 'b', 'o', 'o', 't', 'm', 'g', 'f', 'w',
+    '.', 'e', 'f', 'i', '\0'
+};
+
+static const CHAR16 FAILED_FS_HANDLES_FMT[] = {
+    'F', 'a', 'i', 'l', 'e', 'd', ' ', 't', 'o', ' ', 'g', 'e', 't', ' ', 'f',
+    'i', 'l', 'e', 's', 'y', 's', 't', 'e', 'm', ' ', 'h', 'a', 'n', 'd', 'l',
+    'e', 's', ':', ' ', '%', 'r', '\n', '\0'
+};
+
+static const CHAR16 FOUND_BOOTMGR_FMT[] = {
+    '[', '+', ']', ' ', 'F', 'o', 'u', 'n', 'd', ' ', 'W', 'i', 'n', 'd', 'o',
+    'w', 's', ' ', 'B', 'o', 'o', 't', ' ', 'M', 'a', 'n', 'a', 'g', 'e', 'r',
+    ' ', 'a', 't', ':', ' ', '%', 's', '\n', '\0'
+};
 
 EFI_DEVICE_PATH_PROTOCOL*
 giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
@@ -30,7 +47,7 @@ giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
     );
 
     if (EFI_ERROR(Status)) {
-        Print(L"Failed to get filesystem handles: %r\n", Status);
+        Print(FAILED_FS_HANDLES_FMT, Status);
         return NULL;
     }
 
@@ -59,10 +76,17 @@ giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
         if (!EFI_ERROR(Status)) {
             // Try to open the Windows Boot Manager file
             EFI_FILE_PROTOCOL* File;
+            CHAR16 BootPathBuffer[260];
+            StrCpyS(
+                BootPathBuffer,
+                sizeof(BootPathBuffer) / sizeof(BootPathBuffer[0]),
+                WINDOWS_BOOTMGR_PATH
+            );
+
             Status = Volume->Open(
                 Volume,
                 &File,
-                WINDOWS_BOOTMGR_PATH,
+                BootPathBuffer,
                 EFI_FILE_MODE_READ,
                 EFI_FILE_READ_ONLY
             );
@@ -71,7 +95,7 @@ giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
                 // Found it! Close the file and create device path
                 File->Close(File);
                 DevicePath = FileDevicePath(Handles[i], WINDOWS_BOOTMGR_PATH);
-                Print(L"[+] Found Windows Boot Manager at: %s\n", WINDOWS_BOOTMGR_PATH);
+                Print(FOUND_BOOTMGR_FMT, WINDOWS_BOOTMGR_PATH);
             }
 
             Volume->Close(Volume);
