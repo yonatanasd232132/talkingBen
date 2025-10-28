@@ -4,6 +4,7 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
+#include <Protocol/DxeServices.h>
 #include <Library/DxeServicesTableLib.h>
 #include <Protocol/DxeServices.h>
 #include <Protocol/Cpu.h>
