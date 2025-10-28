@@ -23,6 +23,7 @@
   PrintLib
   DebugLib
   BaseMemoryLib
+  BaseLib
   DxeServicesLib
   CpuLib
   HobLib

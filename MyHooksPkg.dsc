@@ -9,7 +9,7 @@
 
 
 [Components]
-  talkingBEnpkg/MyHooks.inf
+  MyHooks.inf
 
 [LibraryClasses]
   UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
