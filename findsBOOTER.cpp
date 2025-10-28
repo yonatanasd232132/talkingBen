@@ -4,11 +4,17 @@
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/DevicePathLib.h>
+#include <Library/BaseLib.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
 
-#define WINDOWS_BOOTMGR_PATH L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi"
+#define C16(Str) ((CONST CHAR16*)(Str))
+
+static CONST CHAR16* const WINDOWS_BOOTMGR_PATH = C16(L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+
+static CONST CHAR16* const FAILED_FS_HANDLES_FMT = C16(L"Failed to get filesystem handles: %r\n");
+static CONST CHAR16* const FOUND_BOOTMGR_FMT = C16(L"[+] Found Windows Boot Manager at: %s\n");
 
 EFI_DEVICE_PATH_PROTOCOL*
 giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
@@ -30,7 +36,7 @@ giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
     );
 
     if (EFI_ERROR(Status)) {
-        Print(L"Failed to get filesystem handles: %r\n", Status);
+        Print(FAILED_FS_HANDLES_FMT, Status);
         return NULL;
     }
 
@@ -59,10 +65,17 @@ giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
         if (!EFI_ERROR(Status)) {
             // Try to open the Windows Boot Manager file
             EFI_FILE_PROTOCOL* File;
+            CHAR16 BootPathBuffer[260];
+            StrCpyS(
+                BootPathBuffer,
+                sizeof(BootPathBuffer) / sizeof(BootPathBuffer[0]),
+                WINDOWS_BOOTMGR_PATH
+            );
+
             Status = Volume->Open(
                 Volume,
                 &File,
-                WINDOWS_BOOTMGR_PATH,
+                BootPathBuffer,
                 EFI_FILE_MODE_READ,
                 EFI_FILE_READ_ONLY
             );
@@ -71,7 +84,7 @@ giveMeTHeBOOTER(IN EFI_HANDLE ImageHandle)
                 // Found it! Close the file and create device path
                 File->Close(File);
                 DevicePath = FileDevicePath(Handles[i], WINDOWS_BOOTMGR_PATH);
-                Print(L"[+] Found Windows Boot Manager at: %s\n", WINDOWS_BOOTMGR_PATH);
+                Print(FOUND_BOOTMGR_FMT, WINDOWS_BOOTMGR_PATH);
             }
 
             Volume->Close(Volume);
