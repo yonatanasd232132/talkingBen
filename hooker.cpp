@@ -47,6 +47,7 @@ TargetFunction(
 {
     static const CHAR16 ORIGINAL_TARGET_MSG[] = L"Original TargetFunction should not execute after hooking.\n";
     Print(ORIGINAL_TARGET_MSG);
+    Print(L"Original TargetFunction should not execute after hooking.\n");
 
     (void)ImageHandle;
     (void)SystemTable;
@@ -180,6 +181,7 @@ UefiMain(
 
     static const CHAR16 HOOK_ATTEMPT_MSG[] = L"Attempting to hook TargetFunction...\n";
     Print(HOOK_ATTEMPT_MSG);
+    Print(L"Attempting to hook TargetFunction...\n");
 
     Status = PatchFunctionWithJump((VOID*)TargetFunction, (VOID*)MyHookFunction, &SavedBytes);
     if (EFI_ERROR(Status)) {
