@@ -4,8 +4,8 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
+#include <Library/DxeServicesTableLib.h>
 #include <Protocol/Cpu.h>
-#include <Protocol/DxeServices.h>
 #include <Library/PrintLib.h>
 
 static const CHAR16 ORIGINAL_TARGET_MSG[] = {
@@ -91,9 +91,9 @@ PatchFunctionWithJump(
     UINT64                      PageLength;
     UINT64                      BytesToCover;
     UINT8                       JumpBytes[PATCH_JUMP_SIZE];
-    EFI_CPU_ARCH_PROTOCOL*      Cpu = NULL;
-    EFI_DXE_SERVICES_PROTOCOL*  DxeServices = NULL;
-    BOOLEAN                     UsedDxeService = FALSE;
+    EFI_CPU_ARCH_PROTOCOL*  Cpu = NULL;
+    EFI_DXE_SERVICES*       DxeServices = gDS;
+    BOOLEAN                 UsedDxeService = FALSE;
 
     if (OriginalBytes == NULL || TargetAddress == NULL || HookFunction == NULL) {
         return EFI_INVALID_PARAMETER;
@@ -126,15 +126,14 @@ PatchFunctionWithJump(
     PageBase = PhysBase & ~(PAGE_SIZE - 1);
     PageLength = (BytesToCover + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1); // round up to page size
 
-    // Try using DXE Services protocol to set memory attributes if available
-    Status = gBS->LocateProtocol(&gEfiDxeServicesProtocolGuid, NULL, (VOID**)&DxeServices);
-    if (!EFI_ERROR(Status) && DxeServices != NULL) {
+    // Try using DXE Services table to set memory attributes if available
+    if (DxeServices != NULL) {
         UsedDxeService = TRUE;
 
         // Remove execute-protect/readonly attributes (set attributes to 0)
         Status = DxeServices->SetMemorySpaceAttributes(PageBase, PageLength, 0);
         if (EFI_ERROR(Status)) {
-            DEBUG((DEBUG_ERROR, "DxeServices->SetMemorySpaceAttributes failed: %r\n", Status));
+            DEBUG((DEBUG_ERROR, "gDS->SetMemorySpaceAttributes failed: %r\n", Status));
             UsedDxeService = FALSE;
         }
     }
