@@ -1,0 +1,29 @@
+[Defines]
+  INF_VERSION          = 0x00010006
+  BASE_NAME            = MyHooks
+  FILE_GUID            = 01234567-89ab-cdef-0123-456789abcdef
+  MODULE_TYPE          = UEFI_APPLICATION
+  VERSION_STRING       = 1.0
+  ENTRY_POINT          = UefiMain
+
+[Sources]
+  findsBOOTER.cpp
+  hooker.cpp
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  UefiLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  MemoryAllocationLib
+  DevicePathLib
+  PrintLib
+  DebugLib
+  BaseMemoryLib
+  DxeServicesLib
+  CpuLib
+  HobLib
+  PcdLib
