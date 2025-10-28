@@ -10,6 +10,9 @@
 #include <Protocol/Cpu.h>
 #include <Library/PrintLib.h>
 
+// Forward declaration to avoid requiring Protocol/DxeServices.h when building as C++
+typedef struct _EFI_DXE_SERVICES EFI_DXE_SERVICES;
+
 static const CHAR16 ORIGINAL_TARGET_MSG[] = {
     'O', 'r', 'i', 'g', 'i', 'n', 'a', 'l', ' ', 'T', 'a', 'r', 'g', 'e', 't',
     'F', 'u', 'n', 'c', 't', 'i', 'o', 'n', ' ', 's', 'h', 'o', 'u', 'l', 'd',
